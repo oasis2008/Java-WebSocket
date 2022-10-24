@@ -230,7 +230,7 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
 	 * Reinitiates the websocket connection. This method does not block.
 	 * @since 1.3.8
 	 */
-	public void reconnect() {
+	public synchronized void reconnect() {
 		reset();
 		connect();
 	}
@@ -283,7 +283,7 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
 	/**
 	 * Initiates the websocket connection. This method does not block.
 	 */
-	public void connect() {
+	public synchronized void connect() {
 		if( connectReadThread != null )
 			throw new IllegalStateException( "WebSocketClient objects are not reuseable" );
 		connectReadThread = new Thread( this );
@@ -694,7 +694,9 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
 				}
 			} catch ( IOException ex ) {
 				onWebsocketError( webSocketClient, ex );
-			}
+			} catch (Exception ignor){
+                ignor.printStackTrace();
+            }
 		}
 	}
 
