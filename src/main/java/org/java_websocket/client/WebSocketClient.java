@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLContext;
@@ -98,7 +99,8 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
 	/**
 	 * The thread to write outgoing message
 	 */
-	private Thread writeThread;
+
+	private AtomicReference<Thread> writeThread = new AtomicReference<>(null);
 
 	/**
 	 * The thread to connect and read message
@@ -230,7 +232,7 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
 	 * Reinitiates the websocket connection. This method does not block.
 	 * @since 1.3.8
 	 */
-	public synchronized void reconnect() {
+	public void reconnect() {
 		reset();
 		connect();
 	}
@@ -252,14 +254,14 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
 	 */
 	private void reset() {
 		Thread current = Thread.currentThread();
-		if (current == writeThread || current == connectReadThread) {
+		if (current == writeThread.get() || current == connectReadThread) {
 			throw new IllegalStateException("You cannot initialize a reconnect out of the websocket thread. Use reconnect in another thread to insure a successful cleanup.");
 		}
 		try {
 			closeBlocking();
 			if( writeThread != null ) {
-				this.writeThread.interrupt();
-				this.writeThread = null;
+				this.writeThread.get().interrupt();
+				this.writeThread.set(null);
 			}
 			if( connectReadThread != null ) {
 				this.connectReadThread.interrupt();
@@ -283,9 +285,10 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
 	/**
 	 * Initiates the websocket connection. This method does not block.
 	 */
-	public synchronized void connect() {
-		if( connectReadThread != null )
-			throw new IllegalStateException( "WebSocketClient objects are not reuseable" );
+	public void connect() {
+		if( connectReadThread != null ) {
+			return;
+		}
 		connectReadThread = new Thread( this );
 		connectReadThread.setName( "WebSocketConnectReadThread-" + connectReadThread.getId() );
 		connectReadThread.start();
@@ -321,7 +324,7 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
 	 * In oder to make sure the connection is closed use <code>closeBlocking</code>
 	 */
 	public void close() {
-		if( writeThread != null ) {
+		if( writeThread.get() != null ) {
 			engine.close( CloseFrame.NORMAL );
 		}
 	}
@@ -414,8 +417,11 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
 			return;
 		}
 
-		writeThread = new Thread( new WebsocketWriteThread(this) );
-		writeThread.start();
+		writeThread.compareAndSet(null,new Thread( new WebsocketWriteThread(this) ));
+
+		if(writeThread.get() != null && writeThread.get().getState() == Thread.State.NEW){
+			writeThread.get().start();
+		}
 
 		byte[] rawbuffer = new byte[ WebSocketImpl.RCVBUF ];
 		int readBytes;
@@ -521,8 +527,8 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
 	@Override
 	public final void onWebsocketClose( WebSocket conn, int code, String reason, boolean remote ) {
 		stopConnectionLostTimer();
-		if( writeThread != null )
-			writeThread.interrupt();
+		if( writeThread.get() != null )
+			writeThread.get().interrupt();
 		onClose( code, reason, remote );
 		connectLatch.countDown();
 		closeLatch.countDown();
@@ -660,7 +666,7 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
 				handleIOException( e );
 			} finally {
 				closeSocket();
-				writeThread = null;
+				writeThread.set(null);
 			}
 		}
 
