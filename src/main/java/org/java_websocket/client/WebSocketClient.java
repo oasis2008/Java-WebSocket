@@ -301,9 +301,13 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
             return;
         }
 
-        connectReadThread = new Thread(this);
-        connectReadThread.setName("WebSocketConnectReadThread-" + connectReadThread.getId());
-        connectReadThread.start();
+        try {
+            connectReadThread = new Thread(this);
+            connectReadThread.setName("WebSocketConnectReadThread-" + connectReadThread.getId());
+            connectReadThread.start();
+        }catch (Exception e){
+
+        }
     }
 
     /**
