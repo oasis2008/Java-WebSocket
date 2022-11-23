@@ -259,7 +259,7 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
 		}
 		try {
 			closeBlocking();
-			if( writeThread.get() != null ) {
+			if( writeThread != null ) {
 				this.writeThread.get().interrupt();
 				this.writeThread.set(null);
 			}
