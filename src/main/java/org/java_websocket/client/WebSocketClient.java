@@ -261,7 +261,7 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
      *
      * @since 1.3.8
      */
-    private synchronized void reset() {
+    private void reset() {
         Thread current = Thread.currentThread();
         if (current == writeThread || current == connectReadThread) {
             throw new IllegalStateException("You cannot initialize a reconnect out of the websocket thread. Use reconnect in another thread to insure a successful cleanup.");
@@ -295,7 +295,7 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
     /**
      * Initiates the websocket connection. This method does not block.
      */
-    public synchronized void connect() {
+    public void connect() {
         if (connectReadThread != null) {
             System.out.println("WebSocketClient connectReadThread is not null");
             return;
